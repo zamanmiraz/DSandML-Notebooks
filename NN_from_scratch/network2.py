@@ -78,8 +78,8 @@ class Network(object):
         method).
 
         """
-        self.num_layers = len(sizes)
-        self.sizes = sizes
+        self.num_layers = len(sizes) # Number of layers in the network
+        self.sizes = sizes # List of integer where each integer represents the neuron in the layer
         self.default_weight_initializer()
         self.cost=cost
 
@@ -96,6 +96,8 @@ class Network(object):
         layers.
 
         """
+        # np.random.randn return samples from a normal standard distribution
+        # np.random.randn(y, x) -> returns y * x matrix
         self.biases = [np.random.randn(y, 1) for y in self.sizes[1:]]
         self.weights = [np.random.randn(y, x)/np.sqrt(x)
                         for x, y in zip(self.sizes[:-1], self.sizes[1:])]
@@ -156,11 +158,11 @@ class Network(object):
         n = len(training_data)
         evaluation_cost, evaluation_accuracy = [], []
         training_cost, training_accuracy = [], []
-        for j in xrange(epochs):
+        for j in range(epochs):
             random.shuffle(training_data)
             mini_batches = [
                 training_data[k:k+mini_batch_size]
-                for k in xrange(0, n, mini_batch_size)]
+                for k in range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
                 self.update_mini_batch(
                     mini_batch, eta, lmbda, len(training_data))
@@ -232,7 +234,7 @@ class Network(object):
         # second-last layer, and so on.  It's a renumbering of the
         # scheme in the book, used here to take advantage of the fact
         # that Python can use negative indices in lists.
-        for l in xrange(2, self.num_layers):
+        for l in range(2, self.num_layers):
             z = zs[-l]
             sp = sigmoid_prime(z)
             delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
