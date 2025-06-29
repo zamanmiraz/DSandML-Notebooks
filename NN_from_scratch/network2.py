@@ -127,6 +127,15 @@ class Network(object):
         for b, w in zip(self.biases, self.weights):
             a = sigmoid(np.dot(w, a)+b)
         return a
+    
+    def no_improvement_n(self, evaluation_accuracy, n=10):
+        """Check if there has been no improvement in the evaluation accuracy
+        for the last n epochs. If there has been no improvement, return True,
+        otherwise return False.
+        """
+        if len(evaluation_accuracy) < n:
+            return False
+        return all(evaluation_accuracy[-i] <= evaluation_accuracy[-i-1] for i in range(1, n))
 
     def SGD(self, training_data, epochs, mini_batch_size, eta,
             lmbda = 0.0,
@@ -134,7 +143,8 @@ class Network(object):
             monitor_evaluation_cost=False,
             monitor_evaluation_accuracy=False,
             monitor_training_cost=False,
-            monitor_training_accuracy=False):
+            monitor_training_accuracy=False,
+            L2_regularized=True):
         """Train the neural network using mini-batch stochastic gradient
         descent.  The ``training_data`` is a list of tuples ``(x, y)``
         representing the training inputs and the desired outputs.  The
@@ -158,6 +168,7 @@ class Network(object):
         n = len(training_data)
         evaluation_cost, evaluation_accuracy = [], []
         training_cost, training_accuracy = [], []
+        initial_lambda = lmbda
         for j in range(epochs):
             random.shuffle(training_data)
             mini_batches = [
@@ -165,7 +176,7 @@ class Network(object):
                 for k in range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
                 self.update_mini_batch(
-                    mini_batch, eta, lmbda, len(training_data))
+                    mini_batch, eta, lmbda, len(training_data), L2_regularized)
             print("Epoch %s training complete" % j)
             if monitor_training_cost:
                 cost = self.total_cost(training_data, lmbda)
@@ -185,11 +196,14 @@ class Network(object):
                 evaluation_accuracy.append(accuracy)
                 print("Accuracy on evaluation data: {} / {}".format(
                     self.accuracy(evaluation_data), n_data))
-            print
+            if monitor_evaluation_accuracy and self.no_improvement_n(evaluation_accuracy):
+                lmbda *= 0.5
+                if initial_lambda >= 128 * lmbda:
+                    break
         return evaluation_cost, evaluation_accuracy, \
             training_cost, training_accuracy
 
-    def update_mini_batch(self, mini_batch, eta, lmbda, n):
+    def update_mini_batch(self, mini_batch, eta, lmbda, n, L2_regularized):
         """Update the network's weights and biases by applying gradient
         descent using backpropagation to a single mini batch.  The
         ``mini_batch`` is a list of tuples ``(x, y)``, ``eta`` is the
@@ -203,8 +217,16 @@ class Network(object):
             delta_nabla_b, delta_nabla_w = self.backprop(x, y)
             nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
             nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-        self.weights = [(1-eta*(lmbda/n))*w-(eta/len(mini_batch))*nw
-                        for w, nw in zip(self.weights, nabla_w)]
+        "If L2 regularization is used, then the weights are updated"
+        if L2_regularized:
+            # L2 regularization
+            self.weights = [(1 - eta * (lmbda / n)) * w - (eta / len(mini_batch)) * nw
+                            for w, nw in zip(self.weights, nabla_w)]
+        else:
+            # L1 regularization
+            self.weights = [w - eta * (lmbda / n) * np.sign(w) - (eta / len(mini_batch)) * nw
+                            for w, nw in zip(self.weights, nabla_w)]
+
         self.biases = [b-(eta/len(mini_batch))*nb
                        for b, nb in zip(self.biases, nabla_b)]
 
